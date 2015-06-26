@@ -4,14 +4,23 @@
 function jasmineLet(jasmine, namespace) {
   "use strict";
 
-  var env, scopes, propertyNames;
+  var env;
+  var scopes = {};
+  var propertyNames = [];
+  var suiteIdStack = [];
 
   env = jasmine.getEnv();
-  scopes = {};
-  propertyNames = [];
+  env.addReporter({
+    suiteStarted: function(result) {
+      suiteIdStack.push(result.id);
+    },
+    suiteDone: function() {
+      suiteIdStack.pop();
+    }
+  });
 
-  function declare(name, expr, options) {
-    var suite, scope, block;
+  function declare(suite, name, expr, options) {
+    var scope, block;
 
     if (options === null || typeof options !== "object") {
       options = {};
@@ -22,8 +31,6 @@ function jasmineLet(jasmine, namespace) {
     } else {
       block = function () { return expr; };
     }
-
-    suite = env.currentSuite;
 
     scope = scopes[suite.id] || (scopes[suite.id] = {});
     scope[name] = block;
@@ -50,9 +57,8 @@ function jasmineLet(jasmine, namespace) {
   }
 
   function defineProperties() {
-    var spec, suite, declarations, values;
+    var declarations, values;
 
-    spec = env.currentSpec;
     values = {};
 
     function defineProperty(name) {
@@ -67,8 +73,8 @@ function jasmineLet(jasmine, namespace) {
       });
     }
 
-    for (suite = spec.suite; suite; suite = suite.parentSuite) {
-      declarations = scopes[suite.id];
+    for (var i = suiteIdStack.length-1; i >= 0; i--) {
+      declarations = scopes[suiteIdStack[i]];
       if (!declarations) continue;
 
       Object.keys(declarations).forEach(defineProperty);
@@ -92,4 +98,3 @@ function jasmineLet(jasmine, namespace) {
 if (typeof module !== 'undefined') {
   module.exports = jasmineLet;
 }
-
